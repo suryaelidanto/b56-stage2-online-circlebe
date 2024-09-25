@@ -1,4 +1,4 @@
-import { PrismaClient, Thread } from "@prisma/client";
+import { PrismaClient, Thread, User } from "@prisma/client";
 import { CreateThreadDTO, UpdateThreadDTO } from "../dto/thread.dto";
 import { CustomError, CustomErrorCode } from "../types/error";
 
@@ -31,11 +31,22 @@ class ThreadService {
     return thread;
   }
 
-  async createThread(data: CreateThreadDTO): Promise<Thread | null> {
+  async createThread(
+    data: CreateThreadDTO,
+    user: User
+  ): Promise<Thread | null> {
+    if (!user) {
+      throw {
+        code: CustomErrorCode.USER_NOT_EXISTS,
+        message: "User not fiybd!",
+        status: 404,
+      } as CustomError;
+    }
+
     return await prisma.thread.create({
       data: {
         ...data,
-        userId: 1,
+        userId: user.id,
       },
     });
   }

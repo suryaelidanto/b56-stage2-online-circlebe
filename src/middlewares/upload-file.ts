@@ -1,8 +1,4 @@
-import { NextFunction, Request, Response } from "express";
+import multer from "multer";
 
-export function uploadFile(req: Request, res: Response, next: NextFunction) {
-  // upload file dengan multer
-
-  // upload cloudinary
-  next();
-}
+const storage = multer.memoryStorage();
+export const upload = multer({ storage: storage });
