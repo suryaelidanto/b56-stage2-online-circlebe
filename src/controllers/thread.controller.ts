@@ -2,11 +2,16 @@ import { Request, Response } from "express";
 import threadService from "../services/thread.service";
 import { createThreadSchema } from "../utils/schemas/thread.schema";
 import cloudinaryService from "../services/cloudinary.service";
+import { redisClient } from "../libs/redis-client";
 
 class ThreadController {
   async find(req: Request, res: Response) {
     try {
+      const redisThreads = await redisClient.get("THREADS_DATA");
+      if (redisThreads) return res.json(JSON.parse(redisThreads));
+
       const threads = await threadService.getAllThreads();
+      await redisClient.set("THREADS_DATA", JSON.stringify(threads));
       res.json(threads);
     } catch (error) {
       res.status(500).json(error);
@@ -50,6 +55,8 @@ class ThreadController {
 
       const value = await createThreadSchema.validateAsync(body);
       const threads = await threadService.createThread(value, user);
+
+      await redisClient.del("THREADS_DATA");
       res.json(threads);
     } catch (error) {
       res.status(500).json(error);
