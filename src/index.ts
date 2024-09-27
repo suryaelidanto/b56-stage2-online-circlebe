@@ -5,6 +5,7 @@ import { rateLimit } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import swaggerUI from "swagger-ui-express";
 import swaggerDocument from "../swagger/swagger-output.json";
+import { aqmplibConnect } from "./libs/rabbitmq/rabbitmq";
 import { redisClient, redisClientConnect } from "./libs/redis-client";
 import { routerV1 } from "./routes/v1";
 
@@ -30,24 +31,30 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
-redisClientConnect()
+aqmplibConnect()
   .then(() => {
-    const limiter = rateLimit({
-      windowMs: 30 * 1000,
-      limit: 10,
-      standardHeaders: true,
-      legacyHeaders: false,
-      store: new RedisStore({
-        sendCommand: (...args: string[]) => redisClient.sendCommand(args),
-      }),
-    });
+    redisClientConnect()
+      .then(async () => {
+        const limiter = rateLimit({
+          windowMs: 30 * 1000,
+          limit: 10,
+          standardHeaders: true,
+          legacyHeaders: false,
+          store: new RedisStore({
+            sendCommand: (...args: string[]) => redisClient.sendCommand(args),
+          }),
+        });
 
-    app.use(limiter);
-    app.use("/api/v1", routerV1);
+        app.use(limiter);
+        app.use("/api/v1", routerV1);
 
-    app.listen(port, () => {
-      console.log(`Listening on port ${port}`);
-    });
+        app.listen(port, () => {
+          console.log(`Listening on port ${port}`);
+        });
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   })
   .catch((error) => {
     console.error(error);

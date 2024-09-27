@@ -3,6 +3,8 @@ import threadService from "../services/thread.service";
 import { createThreadSchema } from "../utils/schemas/thread.schema";
 import cloudinaryService from "../services/cloudinary.service";
 import { redisClient } from "../libs/redis-client";
+import { amqplibChannel } from "../libs/rabbitmq/rabbitmq";
+import { CIRCLE_QUEUE } from "../libs/rabbitmq/rabbitmq.constant";
 
 class ThreadController {
   async find(req: Request, res: Response) {
@@ -29,7 +31,7 @@ class ThreadController {
     }
   }
 
-  async create(req: Request, res: Response) {
+  async enqueue(req: Request, res: Response) {
     /*  #swagger.requestBody = {
             required: true,
             content: {
@@ -41,25 +43,32 @@ class ThreadController {
             }
         } 
     */
+    const user = (req as any).user;
 
+    const body = {
+      ...req.body,
+      image: req.file?.path,
+    };
+
+    const data = await createThreadSchema.validateAsync(body);
+
+    amqplibChannel.assertQueue(CIRCLE_QUEUE.THREAD);
+    amqplibChannel.sendToQueue(
+      CIRCLE_QUEUE.THREAD,
+      Buffer.from(JSON.stringify({ data, user }))
+    );
+
+    res.send("Threads enqueued!");
+  }
+
+  async dequeue(payload: any) {
     try {
-      const user = (req as any).user;
-      const image = await cloudinaryService.uploadSingle(
-        req.file as Express.Multer.File
-      );
+      await cloudinaryService.uploadSingleDisk(payload.data.image);
+      // await threadService.createThread(payload.data, payload.user);
 
-      const body = {
-        ...req.body,
-        image: image.secure_url,
-      };
-
-      const value = await createThreadSchema.validateAsync(body);
-      const threads = await threadService.createThread(value, user);
-
-      await redisClient.del("THREADS_DATA");
-      res.json(threads);
+      console.log(`Thread created! ${JSON.stringify(payload)}`);
     } catch (error) {
-      res.status(500).json(error);
+      console.error(error);
     }
   }
 

@@ -17,6 +17,12 @@ class CloudinaryService {
       folder: process.env.CLOUDINARY_UPLOAD_FOLDER,
     });
   }
+
+  async uploadSingleDisk(path: string) {
+    return await cloudinary.uploader.upload(path, {
+      folder: process.env.CLOUDINARY_UPLOAD_FOLDER,
+    });
+  }
 }
 
 export default new CloudinaryService();
